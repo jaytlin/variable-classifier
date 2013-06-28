@@ -1,32 +1,17 @@
-def numtype(item):
-    # add binary?
-    try:
-        int(item)
-        return 'int'
-    except ValueError:
-        pass
-    try:
-        float(item)
-        return 'float'
-    except ValueError:
-        pass
-    try:
-        complex(item)
-        return 'complex'
-    except ValueError:
-        pass
-    return 'str'
+# Parses data from .xml file
+# Features for each variable are detected using the data from .xml file, and then written to a .csv file.
 
 from xml.dom import minidom
 import numpy as np
 from scipy import stats
 import csv
+from numtype import numtype
 
 # open and parse xml
-xmldoc = minidom.parse('morsecodes.xml')
+xmldoc = minidom.parse('/Users/christopherli/Documents/AMPLab/data/morsecodes.xml')
 
 # open csv write file
-test = open('training2.csv','a')
+test = open('/Users/christopherli/Documents/AMPLab/data/training5.csv','a')
 wr = csv.writer(test)
 columns = ['name','dataset','category','1_{no repeated values}','1_{distinct values occur equally often}','1_{regularly spaced intervals}','1_{interval width divides range}','type']
 ######### [  0   ,    1    ,     2    ,           3            ,                    4                    ,               5                ...           
@@ -36,21 +21,22 @@ wr.writerow([])
 
 # for each data set
 for data in range(len(xmldoc.getElementsByTagName('data'))):
-    
     dataset = xmldoc.getElementsByTagName('data')
+    
     # get all variable groups in dataset
     variables = dataset[data].getElementsByTagName('variables')
     records = dataset[data].getElementsByTagName('records')[0]
     
+    # label dataset name or "no name" if N/A
     try:
         columns[1] = dataset[data].attributes["name"].value # DATASET
     except:
         columns[1] = "no name"
     total = int(records.attributes["count"].value) # TOTAL NUMBER OF ROWS
-     
+    
+    ### FIRST add id or label or source and destination as a id variable(s) ###
     i = 1  
     try:
-        i = 1
         while records.childNodes[i].nodeType is not 1: i += 1
         records.childNodes[i].attributes["id"].value
         columns[0] = 'id'
@@ -72,7 +58,6 @@ for data in range(len(xmldoc.getElementsByTagName('data'))):
     except:
         pass
     
-    ### FIRST add id or label or source and destination as a variable(s) ###
     if columns[0] == 'id' or columns[0] == 'label' or columns[0] == 'source':
         
         for rep in range(repeat):
@@ -140,6 +125,8 @@ for data in range(len(xmldoc.getElementsByTagName('data'))):
     for d_set in range(len(variables)):
         total_variables = 0
         for variable in variables[d_set].childNodes:
+            
+            # if variable is an element type and not a countervarible or randomuniformvariable
             if variable.nodeType is 1 and variable.nodeName != 'countervariable' and variable.nodeName != 'randomuniformvariable':
     
                 total_variables += 1
@@ -147,6 +134,7 @@ for data in range(len(xmldoc.getElementsByTagName('data'))):
                 columns[7] = 'type' # initialize type
                 missing_vals = 0 # initialize missing values
 
+                # if there are no levels (likely not of type "str")
                 if not variable.childNodes:
                     row = 1
                     try:
@@ -172,24 +160,20 @@ for data in range(len(xmldoc.getElementsByTagName('data'))):
                                 break
                     else:
                         info = info[total_variables-1]
-                    try:
-                        columns[7] = numtype(info) # TYPE (int or float)
-                    except:
-                        columns[7] = 'str' # TYPE (string)
+                    columns[7] = numtype(info) # TYPE 
                     try:
                         time = variable.attributes["time"].value
                         columns[2] = "real" # for now, time is always real
                     except:
                         columns[2] = "" # temporary
+                        
+                # else there are levels (likely of type "str")
                 else:                
                     levels = {}
                     for level in variable.childNodes[1].childNodes:
                         if level.nodeType is 1:
                             levels[level.attributes["value"].value] = level.firstChild.nodeValue
-                            try: 
-                                columns[7] = numtype(level.firstChild.nodeValue) # TYPE (int or float)
-                            except:
-                                columns[7] = 'str' # TYPE (string)
+                            columns[7] = numtype(level.firstChild.nodeValue) # TYPE 
                     if columns[7] == 'type':
                         info = records.childNodes[1].firstChild.nodeValue
                         info = [str(x) for x in info.split()]
@@ -254,7 +238,7 @@ for data in range(len(xmldoc.getElementsByTagName('data'))):
                         columns[5] = 0
                 except IndexError:
                     print 'index error?'
-                except ValueError: # strings?
+                except ValueError:
                     columns[5] = 0
             
                 # if interval width divides range

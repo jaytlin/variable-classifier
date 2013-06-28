@@ -1,3 +1,6 @@
+# Loads training data from a .csv file and creates the decision tree for the dataset.
+# Uses test data to calculate error of the decision tree.
+
 import csv
 import numpy as np
 from sklearn.datasets import load_iris
@@ -46,6 +49,9 @@ for i in range(len(our_data)):
 
             
         # converting type to numerical label
+        # 0 is int
+        # 1 is float
+        # 2 is str
         if our_data[i][j] == 'int':
             our_data_array[i][j] = 0
         elif our_data[i][j] == 'float':
@@ -66,8 +72,7 @@ clf = clf.fit(data.data, data.target)
 # change to pdf format
 import StringIO
 import os
-
-with open('data4.0.dot','w') as f:
+with open('/Users/christopherli/Documents/AMPLab/data4.0.dot','w') as f:
     f = tree.export_graphviz(clf,out_file=f,feature_names=data.feature_names)
 
 # use decision tree for testing 
