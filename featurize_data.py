@@ -62,13 +62,40 @@ def process_variables(f):
     for dataset in range(len(data)):
         variables = data[dataset].getElementsByTagName('variables')
         records = data[dataset].getElementsByTagName('records')[0]
+        has_id = has_ids(records)
+        if has_id == 'id' or has_id == 'label' or has_id == 'source':
+            features.append(evaluate_features(has_id, 0, records))
+            if has_id == 'source':
+                features.append(evaluate_features('destination', 0, records))
         if there_are(variables):
             variable_number = 0
             for variable in variables[0].childNodes:
                 if is_valid_variable(variable):
                     variable_number += 1
-                    features.append(evaluate_features(variable_number, records))
+                    features.append(evaluate_features(variable, variable_number, records))
     return features
+    
+def has_ids(records):
+    i=1
+    try:
+        while records.childNodes[i].nodeType is not 1: i += 1
+        records.childNodes[i].attributes["source"].value
+        return 'source'
+    except:
+        pass
+    try:
+        while records.childNodes[i].nodeType is not 1: i += 1
+        records.childNodes[i].attributes["label"].value
+        return 'label'
+    except:
+        pass
+    try:
+        while records.childNodes[i].nodeType is not 1: i += 1
+        records.childNodes[i].attributes["id"].value
+        return 'id'
+    except:
+        pass
+    return ''
     
 def there_are(things):
     # returns if there are any "things"
@@ -78,11 +105,12 @@ def is_valid_variable(variable):
     # checks if variable is a valid variable (element node, not a counter, not a randomuniform)
     return (variable.nodeType == 1 and variable.nodeName != 'countervariable' and variable.nodeName != 'randomuniformvariable')
     
-def evaluate_features(variable_number, records):
+def evaluate_features(variable, variable_number, records):
     # runs each feature test and returns the results for the variable
     missing = get_missing_value(records)
     distincts = {}
-    distincts, total_missing = get_distinct_values(variable_number, records, missing)
+    distincts, total_missing = get_distinct_values(variable, variable_number, records, missing)
+    
     var_type = get_var_type(distincts.keys()[0])
     total_distincts = len(distincts)
     no_rep_vals = no_repeated_values(records, total_distincts, total_missing)
@@ -92,11 +120,16 @@ def evaluate_features(variable_number, records):
         int_div_range = interval_divides_range(distincts)
     else:
         int_div_range = 0
-    return [no_rep_vals, eq_occur, reg_ints, int_div_range, var_type]
+    if variable_number is not 0:
+        has_lvls = has_levels(variable)
+    else:
+        has_lvls = 0
+    print variable
+    return [no_rep_vals, eq_occur, reg_ints, int_div_range, has_lvls, var_type]
     
 def get_feature_names():
     # based on function above, evaluate_features, returns array to store feature names
-    return ['no_rep_vals', 'eq_occur', 'reg_ints', 'int_div_range', 'var_type']
+    return ['no_rep_vals', 'eq_occur', 'reg_ints', 'int_div_range', 'has_lvls', 'var_type']
     
 def get_missing_value(records):
     # returns the string attached with missing values in the data
@@ -106,16 +139,19 @@ def get_missing_value(records):
     except:
         return 'space_filler'
         
-def get_distinct_values(variable_number, records, missing):
+def get_distinct_values(variable, variable_number, records, missing):
     # gets all distinct values for the given variable
     distincts = {}
     total_missing = 0
     for record in range(len(records.childNodes)):
         if record % 2 and is_valid_nodeType(records.childNodes[record]):
-            try:
-                distincts, total_missing = split_one_string(distincts, records, record, variable_number, missing, total_missing)
-            except:
-                distincts = multiple_strings(distincts, records, record, variable_number)
+            if variable_number is not 0:
+                try:
+                    distincts, total_missing = split_one_string(distincts, records, record, variable_number, missing, total_missing)
+                except:
+                    distincts = multiple_strings(distincts, records, record, variable_number)
+            else: 
+                distincts = get_ids(distincts, variable, records, record)
     return distincts, total_missing
             
 def is_valid_nodeType(record):
@@ -135,16 +171,6 @@ def split_one_string(distincts, records, record, variable_number, missing, total
     else: 
         distincts[this_variable] += 1
     return distincts, total_missing
-        
-def add_variable(variable, distincts):
-    # adds variable to dictionary of distincts - value starts at 1
-    distincts[variable] = 1
-    return distincts
-    
-def increment_variable(variable, distincts):
-    # increments value of the variable in the distincts dict
-    distincts[variable] += 1
-    return distincts
     
 def multiple_strings(distincts, records, record, variable_number):
     # data is given in multiple strings, one per variable - gets data for given variable by going through those multiple strings
@@ -163,6 +189,14 @@ def multiple_strings(distincts, records, record, variable_number):
             distincts[this_variable] += 1
     return distincts
     
+def get_ids(distincts, variable, records, record):
+    data = records.childNodes[record].attributes[variable].value
+    if data not in distincts:
+        distincts[data] = 1
+    else: 
+        distincts[data] += 1
+    return distincts
+
 def get_var_type(item):
     # returns variable type
     try:
@@ -226,6 +260,13 @@ def interval_divides_range(distincts):
     else:
         return 0
         
+def has_levels(variable):
+    # checks if variable has "levels", which are usually strings to describe their integer indicators
+    if not variable.childNodes:
+        return 0
+    else:
+        return 1
+        
 def sort_list(distincts):
     # sorts distinct values of the variable in order
     return sorted(list([float(x) for x in distincts.keys()]))
@@ -234,8 +275,8 @@ def create_target(training):
     target = []
     datareader = csv.reader(open(training,'rU'))
     for row in datareader:
-        if row[9] != '':
-            target.append(classify(row[9]))
+        if row[2] != '' and row[2] != 'category':
+            target.append(classify(row[2]))
     target = np.array(target)
     return target
     
