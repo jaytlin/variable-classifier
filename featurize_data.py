@@ -16,7 +16,8 @@ def main(args):
     dot = args.dot
     
     # computes tuples, imports target classification from training file, then creates decision tree
-    run(xmldir,training,dot)
+    data, target = run(xmldir,training,dot)
+    return data, target
     
 def run(xmldir, training, dot):
     xmlfiles = find_xmlfiles(xmldir)
@@ -34,14 +35,14 @@ def run(xmldir, training, dot):
     target = create_target(training)
     
     # create decision tree
-    print len(data)
-    print len(target)
     clf = tree.DecisionTreeClassifier()
     clf = clf.fit(data, target)
     
     # change to pdf format
     with open(dot,'w') as f:
         f = tree.export_graphviz(clf,out_file=f,feature_names=feature_names)
+        
+    return data, target
     
 def find_xmlfiles(xmldir):
     # returns list of .xml files in the given directory "xmldir"
@@ -120,11 +121,10 @@ def evaluate_features(variable, variable_number, records):
         int_div_range = interval_divides_range(distincts)
     else:
         int_div_range = 0
-    if variable_number is not 0:
+    if variable_number is not 0: # if this is a variable, not an id, then test for levels
         has_lvls = has_levels(variable)
     else:
         has_lvls = 0
-    print variable
     return [no_rep_vals, eq_occur, reg_ints, int_div_range, has_lvls, var_type]
     
 def get_feature_names():
